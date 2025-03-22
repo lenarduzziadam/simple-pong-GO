@@ -35,12 +35,14 @@ type Ball struct {
 
 type Brick struct {
 	Object
+	//added boolean for potential hit detection
+	Hit bool
 }
 
 type Game struct {
 	paddle    Paddle
 	ball      Ball
-	brick     Brick
+	bricks    []Brick
 	score     int
 	highScore int
 }
@@ -68,20 +70,11 @@ func main() {
 		dydt: ballSpeed,
 	}
 
-	brick := Brick{
-		Object: Object{
-			X: screenWidth * 0.5,
-			Y: screenHeight * 0.1,
-			W: 80,
-			H: 25,
-		},
-	}
-
 	g := &Game{
 		paddle: paddle,
 		ball:   ball,
-		brick:  brick,
 	}
+	g.initBricks()
 	err := ebiten.RunGame(g)
 	if err != nil {
 		log.Fatal(err)
@@ -103,11 +96,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		float32(g.ball.W), float32(g.ball.H),
 		color.White, false,
 	)
-	vector.DrawFilledRect(screen,
-		float32(g.brick.X), float32(g.brick.Y),
-		float32(g.brick.W), float32(g.brick.H),
-		color.White, false,
-	)
+	for _, brick := range g.bricks {
+		if brick.Hit {
+			continue
+		}
+
+		vector.DrawFilledRect(screen,
+			float32(brick.X), float32(brick.Y),
+			float32(brick.W), float32(brick.H),
+			color.White, false,
+		)
+	}
 	scoreStr := "Score: " + fmt.Sprint(g.score)
 	text.Draw(screen, scoreStr, basicfont.Face7x13, 10, 10, color.White)
 
@@ -171,6 +170,35 @@ func (g *Game) CollideWithPaddle() {
 	}
 }
 
+// new Brick initializer field
+func (g *Game) initBricks() {
+	rows := 5
+	cols := 10
+	brickWidth := 80
+	brickHeight := 25
+	padding := 5
+	startX := 20
+	startY := 20
+
+	g.bricks = []Brick{}
+
+	for row := 0; row < rows; row++ {
+		for col := 0; col < cols; col++ {
+			x := startX + col*(brickWidth+padding)
+			y := startY + row*(brickHeight+padding)
+			brick := Brick{
+				Object: Object{
+					X: x,
+					Y: y,
+					W: brickWidth,
+					H: brickHeight,
+				},
+				Hit: false,
+			}
+			g.bricks = append(g.bricks, brick)
+		}
+	}
+}
 func (g *Game) CollideWithBrick() {
 	// Define ball and brick boundaries
 	ballLeft := g.ball.X
@@ -178,47 +206,57 @@ func (g *Game) CollideWithBrick() {
 	ballTop := g.ball.Y
 	ballBottom := g.ball.Y + g.ball.H
 
-	brickLeft := g.brick.X
-	brickRight := g.brick.X + g.brick.W
-	brickTop := g.brick.Y
-	brickBottom := g.brick.Y + g.brick.H
-
-	if ballRight > brickLeft && ballLeft < brickRight && ballBottom > brickTop && ballTop < brickBottom {
-		//Find overlap on each side
-		overlapLeft := ballRight - brickLeft
-		overlapRight := brickRight - ballLeft
-		overlapTop := ballBottom - brickTop
-		overlapBot := brickBottom - ballTop
-
-		//Locates minimum overlap
-		minOverlap := overlapLeft
-		collisionSide := "left"
-
-		if overlapRight < minOverlap {
-			minOverlap = overlapRight
-			collisionSide = "right"
-		}
-		if overlapTop < minOverlap {
-			minOverlap = overlapTop
-			collisionSide = "top"
-		}
-		if overlapBot < minOverlap {
-			minOverlap = overlapBot
-			collisionSide = "bottom"
+	//making for loop for iteration
+	for i := range g.bricks {
+		brick := &g.bricks[i]
+		if brick.Hit {
+			continue
 		}
 
-		//reverse velocity based on collision side
-		switch collisionSide {
-		case "left", "right":
-			g.ball.dxdt = -g.ball.dxdt
-		case "top", "bottom":
-			g.ball.dydt = -g.ball.dydt
+		brickLeft := brick.X
+		brickRight := brick.X + brick.W
+		brickTop := brick.Y
+		brickBottom := brick.Y + brick.H
+
+		if ballRight > brickLeft && ballLeft < brickRight && ballBottom > brickTop && ballTop < brickBottom {
+			//Find overlap on each side
+			overlapLeft := ballRight - brickLeft
+			overlapRight := brickRight - ballLeft
+			overlapTop := ballBottom - brickTop
+			overlapBot := brickBottom - ballTop
+
+			//Locates minimum overlap
+			minOverlap := overlapLeft
+			collisionSide := "left"
+
+			if overlapRight < minOverlap {
+				minOverlap = overlapRight
+				collisionSide = "right"
+			}
+			if overlapTop < minOverlap {
+				minOverlap = overlapTop
+				collisionSide = "top"
+			}
+			if overlapBot < minOverlap {
+				minOverlap = overlapBot
+				collisionSide = "bottom"
+			}
+
+			//reverse velocity based on collision side
+			switch collisionSide {
+			case "left", "right":
+				g.ball.dxdt = -g.ball.dxdt
+			case "top", "bottom":
+				g.ball.dydt = -g.ball.dydt
+			}
+			brick.Hit = true //mark brick as hit
+			//update score
+			g.score++
+			if g.score > g.highScore {
+				g.highScore = g.score
+			}
+			break
 		}
 
-		//update score
-		g.score++
-		if g.score > g.highScore {
-			g.highScore = g.score
-		}
 	}
 }
