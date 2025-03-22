@@ -19,6 +19,13 @@ const (
 	paddleSpeed  = 8
 )
 
+var BrickColors = map[int]color.RGBA{
+	4: {255, 0, 0, 255},     // Red
+	3: {0, 0, 255, 255},     // Blue
+	2: {0, 255, 0, 255},     // Green
+	1: {255, 255, 255, 255}, // White
+}
+
 type Object struct {
 	X, Y, W, H int
 }
@@ -35,8 +42,10 @@ type Ball struct {
 
 type Brick struct {
 	Object
-	//added boolean for potential hit detection
-	Hit bool
+
+	Hit       bool
+	Health    int
+	MaxHealth int
 }
 
 type Game struct {
@@ -100,11 +109,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if brick.Hit {
 			continue
 		}
-
+		brickColor := BrickColors[brick.Health]
 		vector.DrawFilledRect(screen,
 			float32(brick.X), float32(brick.Y),
 			float32(brick.W), float32(brick.H),
-			color.White, false,
+			brickColor, false,
 		)
 	}
 	scoreStr := "Score: " + fmt.Sprint(g.score)
@@ -193,7 +202,9 @@ func (g *Game) initBricks() {
 					W: brickWidth,
 					H: brickHeight,
 				},
-				Hit: false,
+				Hit:       false,
+				Health:    4,
+				MaxHealth: 4,
 			}
 			g.bricks = append(g.bricks, brick)
 		}
@@ -209,7 +220,7 @@ func (g *Game) CollideWithBrick() {
 	//making for loop for iteration
 	for i := range g.bricks {
 		brick := &g.bricks[i]
-		if brick.Hit {
+		if brick.Health <= 0 {
 			continue
 		}
 
@@ -249,11 +260,19 @@ func (g *Game) CollideWithBrick() {
 			case "top", "bottom":
 				g.ball.dydt = -g.ball.dydt
 			}
-			brick.Hit = true //mark brick as hit
+			brick.Health-- //Decrement brick health
 			//update score
 			g.score++
 			if g.score > g.highScore {
 				g.highScore = g.score
+			}
+
+			if brick.Health <= 0 {
+				brick.Hit = true
+				g.score += 10
+				if g.score > g.highScore {
+					g.highScore = g.score
+				}
 			}
 			break
 		}
