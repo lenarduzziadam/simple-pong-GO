@@ -139,8 +139,8 @@ func (b *Ball) Move() {
 }
 
 func (g *Game) Reset() {
-	g.ball.X = 100
-	g.ball.Y = 250
+	g.ball.X = screenWidth * 0.4
+	g.ball.Y = screenHeight * 0.7
 
 	g.score = 0
 }
@@ -172,9 +172,9 @@ func (g *Game) CollideWithPaddle() {
 
 // new Brick initializer field
 func (g *Game) initBricks() {
-	rows := 5
-	cols := 10
-	brickWidth := 80
+	rows := 10
+	cols := 18
+	brickWidth := 78
 	brickHeight := 25
 	padding := 5
 	startX := 20
