@@ -33,9 +33,14 @@ type Ball struct {
 	dydt int
 }
 
+type Brick struct {
+	Object
+}
+
 type Game struct {
 	paddle    Paddle
 	ball      Ball
+	brick     Brick
 	score     int
 	highScore int
 }
@@ -47,15 +52,15 @@ func main() {
 	paddle := Paddle{
 		Object: Object{
 			X: screenWidth * 0.5,
-			Y: screenHeight - 20,
+			Y: screenHeight - 15,
 			W: 90,
 			H: 15,
 		},
 	}
 	ball := Ball{
 		Object: Object{
-			X: 150,
-			Y: 150,
+			X: screenWidth * 0.5,
+			Y: screenHeight * 0.8,
 			W: 15,
 			H: 15,
 		},
@@ -63,9 +68,19 @@ func main() {
 		dydt: ballSpeed,
 	}
 
+	brick := Brick{
+		Object: Object{
+			X: screenWidth * 0.5,
+			Y: screenHeight * 0.1,
+			W: 80,
+			H: 25,
+		},
+	}
+
 	g := &Game{
 		paddle: paddle,
 		ball:   ball,
+		brick:  brick,
 	}
 	err := ebiten.RunGame(g)
 	if err != nil {
@@ -88,6 +103,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		float32(g.ball.W), float32(g.ball.H),
 		color.White, false,
 	)
+	vector.DrawFilledRect(screen,
+		float32(g.brick.X), float32(g.brick.Y),
+		float32(g.brick.W), float32(g.brick.H),
+		color.White, false,
+	)
 	scoreStr := "Score: " + fmt.Sprint(g.score)
 	text.Draw(screen, scoreStr, basicfont.Face7x13, 10, 10, color.White)
 
@@ -100,6 +120,7 @@ func (g *Game) Update() error {
 	g.ball.Move()
 	g.CollideWithWall()
 	g.CollideWithPaddle()
+	g.CollideWithBrick()
 	return nil
 }
 
@@ -143,6 +164,58 @@ func (g *Game) CollideWithWall() {
 func (g *Game) CollideWithPaddle() {
 	if g.ball.Y >= g.paddle.Y && g.ball.X >= g.paddle.X && g.ball.X <= g.paddle.X+g.paddle.W {
 		g.ball.dydt = -g.ball.dydt
+		g.score++
+		if g.score > g.highScore {
+			g.highScore = g.score
+		}
+	}
+}
+
+func (g *Game) CollideWithBrick() {
+	// Define ball and brick boundaries
+	ballLeft := g.ball.X
+	ballRight := g.ball.X + g.ball.W
+	ballTop := g.ball.Y
+	ballBottom := g.ball.Y + g.ball.H
+
+	brickLeft := g.brick.X
+	brickRight := g.brick.X + g.brick.W
+	brickTop := g.brick.Y
+	brickBottom := g.brick.Y + g.brick.H
+
+	if ballRight > brickLeft && ballLeft < brickRight && ballBottom > brickTop && ballTop < brickBottom {
+		//Find overlap on each side
+		overlapLeft := ballRight - brickLeft
+		overlapRight := brickRight - ballLeft
+		overlapTop := ballBottom - brickTop
+		overlapBot := brickBottom - ballTop
+
+		//Locates minimum overlap
+		minOverlap := overlapLeft
+		collisionSide := "left"
+
+		if overlapRight < minOverlap {
+			minOverlap = overlapRight
+			collisionSide = "right"
+		}
+		if overlapTop < minOverlap {
+			minOverlap = overlapTop
+			collisionSide = "top"
+		}
+		if overlapBot < minOverlap {
+			minOverlap = overlapBot
+			collisionSide = "bottom"
+		}
+
+		//reverse velocity based on collision side
+		switch collisionSide {
+		case "left", "right":
+			g.ball.dxdt = -g.ball.dxdt
+		case "top", "bottom":
+			g.ball.dydt = -g.ball.dydt
+		}
+
+		//update score
 		g.score++
 		if g.score > g.highScore {
 			g.highScore = g.score
