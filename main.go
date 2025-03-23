@@ -124,6 +124,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) Update() error {
+	//updates methods in order (so call them in the order you want them on screen)
 	g.paddle.MoveOnKeyPress()
 	g.ball.Move()
 	g.CollideWithWall()
@@ -181,6 +182,7 @@ func (g *Game) CollideWithPaddle() {
 
 // new Brick initializer field
 func (g *Game) initBricks() {
+	//initializes row amount, column amoutn, width height, and padding variable as well as a start y and x at pposition (20,20)
 	rows := 10
 	cols := 18
 	brickWidth := 78
@@ -189,12 +191,17 @@ func (g *Game) initBricks() {
 	startX := 20
 	startY := 20
 
+	//creates array of Brick type struct
 	g.bricks = []Brick{}
 
+	//typical iteration logic rows, handles until final row reached
 	for row := 0; row < rows; row++ {
+		//innerloop goes over columns for each row (making an inner for and a time complexity of at least O(n^2)
+		//this inner loop also initializes an initial x, y position keeping padding in mind and then pads out the bricks speerating them by 5 pixels in this case but still plenty capable to  figure it out
 		for col := 0; col < cols; col++ {
 			x := startX + col*(brickWidth+padding)
 			y := startY + row*(brickHeight+padding)
+			//assigns varibales to brick, and Bricks inner Object sturct
 			brick := Brick{
 				Object: Object{
 					X: x,
@@ -219,10 +226,14 @@ func (g *Game) CollideWithBrick() {
 
 	//making for loop for iteration
 	for i := range g.bricks {
+		//now initializes a brick as the current i positone dbrick, gotten via iteration
 		brick := &g.bricks[i]
+		//checks if brick health is less of equal to 0 if so will remove the box from the screen, no collision or drawed rectangle anymore as far as i can guess but maybe be careful
 		if brick.Health <= 0 {
 			continue
 		}
+
+		//intiailized more easy to comprehend and mroe universal variables for many collisions/object situations can always edit later on. .
 
 		brickLeft := brick.X
 		brickRight := brick.X + brick.W
