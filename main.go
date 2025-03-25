@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"math/rand"
 
 	"fmt"
 	"image/color"
@@ -54,6 +55,8 @@ type Game struct {
 	bricks       []Brick
 	score        int
 	highScore    int
+	currentLevel int
+	mode         string //campaign or random
 	ballLaunched bool
 }
 
@@ -83,6 +86,7 @@ func main() {
 	g := &Game{
 		paddle: paddle,
 		ball:   ball,
+		mode:   "random",
 	}
 	//INITIALIZED initBricks after you initial initBricks (iteration before full game load)
 	g.initBricks()
@@ -128,10 +132,38 @@ func (g *Game) Draw(screen *ebiten.Image) {
 func (g *Game) Update() error {
 	//updates methods in order (so call them in the order you want them on screen)
 	g.paddle.MoveOnKeyPress()
-	g.ball.Move()
+
+	// If ball hasn't launched, follow paddle
+	if !g.ballLaunched {
+		g.ball.X = g.paddle.X + g.paddle.W/2 - g.ball.W/2
+		g.ball.Y = g.paddle.Y - g.ball.H
+
+		// Launch on spacebar press
+		if ebiten.IsKeyPressed(ebiten.KeySpace) {
+			g.ballLaunched = true
+			g.ball.dxdt = ballSpeed
+			g.ball.dydt = -ballSpeed
+		}
+	} else {
+		// Ball moves normally
+		g.ball.Move()
+	}
+
 	g.CollideWithWall()
 	g.CollideWithPaddle()
 	g.CollideWithBrick()
+
+	//checks if all bricks allBricksCleared
+	if g.allBricksCleared() {
+		if g.mode == "campaign" {
+			g.currentLevel++
+			if g.currentLevel >= len(Levels) {
+				//end of campaign
+				g.currentLevel = 1 //for now just reset add gamestates later
+
+			}
+		}
+	}
 	return nil
 }
 
@@ -151,10 +183,12 @@ func (b *Ball) Move() {
 }
 
 func (g *Game) Reset() {
-	g.ball.X = screenWidth * 0.4
-	g.ball.Y = screenHeight * 0.7
-
 	g.score = 0
+	g.ball.X = g.paddle.X + g.paddle.W/2 - g.ball.W/2
+	g.ball.Y = g.paddle.Y - g.ball.H
+	g.ball.dxdt = 0
+	g.ball.dydt = 0
+	g.ballLaunched = false
 }
 
 func (g *Game) CollideWithWall() {
@@ -181,41 +215,79 @@ func (g *Game) CollideWithPaddle() {
 		}
 	}
 }
+func (g *Game) allBricksCleared() bool {
+	for _, b := range g.bricks {
+		if b.Health > 0 {
+			return false
+		}
+	}
+	return true
+}
 
 // new Brick initializer field
 func (g *Game) initBricks() {
 	//initializes row amount, column amoutn, width height, and padding variable as well as a start y and x at pposition (20,20)
-	rows := 10
-	cols := 18
+	g.bricks = []Brick{} //creates array of Brick type struct
 	brickWidth := 78
 	brickHeight := 25
 	padding := 5
 	startX := 20
 	startY := 20
-
-	//creates array of Brick type struct
-	g.bricks = []Brick{}
-
-	//typical iteration logic rows, handles until final row reached
-	for row := 0; row < rows; row++ {
-		//innerloop goes over columns for each row (making an inner for and a time complexity of at least O(n^2)
-		//this inner loop also initializes an initial x, y position keeping padding in mind and then pads out the bricks speerating them by 5 pixels in this case but still plenty capable to  figure it out
-		for col := 0; col < cols; col++ {
-			x := startX + col*(brickWidth+padding)
-			y := startY + row*(brickHeight+padding)
-			//assigns varibales to brick, and Bricks inner Object sturct
-			brick := Brick{
-				Object: Object{
-					X: x,
-					Y: y,
-					W: brickWidth,
-					H: brickHeight,
-				},
-				Hit:       false,
-				Health:    4,
-				MaxHealth: 4,
+	if g.mode == "campaign" {
+		layout := Levels[g.currentLevel]
+		//typical iteration logic rows, handles until final row reached
+		for row := 0; row < len(layout); row++ {
+			//innerloop goes over columns for each row (making an inner for and a time complexity of at least O(n^2)
+			//this inner loop also initializes an initial x, y position keeping padding in mind and then pads out the bricks speerating them by 5 pixels in this case but still plenty capable to  figure it out
+			for col := 0; col < len(layout[row]); col++ {
+				health := layout[row][col]
+				x := startX + col*(brickWidth+padding)
+				y := startY + row*(brickHeight+padding)
+				//assigns varibales to brick, and Bricks inner Object sturct
+				brick := Brick{
+					Object: Object{
+						X: x,
+						Y: y,
+						W: brickWidth,
+						H: brickHeight,
+					},
+					Hit:       false,
+					Health:    health,
+					MaxHealth: health,
+				}
+				g.bricks = append(g.bricks, brick)
 			}
-			g.bricks = append(g.bricks, brick)
+		}
+	} else if g.mode == "random" {
+		rows := rand.Intn(6) + 6  //5 to 11 rows
+		cols := rand.Intn(8) + 10 // 10 to 17 rows
+		//typical iteration logic rows, handles until final row reached
+		for row := 0; row < rows; row++ {
+			//innerloop goes over columns for each row (making an inner for and a time complexity of at least O(n^2)
+			//this inner loop also initializes an initial x, y position keeping padding in mind and then pads out the bricks speerating them by 5 pixels in this case but still plenty capable to  figure it out
+			for col := 0; col < cols; col++ {
+				//50% chance to place brick
+				if rand.Float64() < 0.5 {
+					continue
+				}
+
+				health := rand.Intn(4) + 1 // 1 to 4
+				x := startX + col*(brickWidth+padding)
+				y := startY + row*(brickHeight+padding)
+				//assigns varibales to brick, and Bricks inner Object sturct
+				brick := Brick{
+					Object: Object{
+						X: x,
+						Y: y,
+						W: brickWidth,
+						H: brickHeight,
+					},
+					Hit:       false,
+					Health:    health,
+					MaxHealth: health,
+				}
+				g.bricks = append(g.bricks, brick)
+			}
 		}
 	}
 }
