@@ -49,11 +49,12 @@ type Brick struct {
 }
 
 type Game struct {
-	paddle    Paddle
-	ball      Ball
-	bricks    []Brick
-	score     int
-	highScore int
+	paddle       Paddle
+	ball         Ball
+	bricks       []Brick
+	score        int
+	highScore    int
+	ballLaunched bool
 }
 
 func main() {
@@ -83,6 +84,7 @@ func main() {
 		paddle: paddle,
 		ball:   ball,
 	}
+	//INITIALIZED initBricks after you initial initBricks (iteration before full game load)
 	g.initBricks()
 	err := ebiten.RunGame(g)
 	if err != nil {
