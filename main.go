@@ -252,24 +252,42 @@ func (g *Game) allBricksCleared() bool {
 
 // new Brick initializer field
 func (g *Game) initBricks() {
-	//initializes row amount, column amoutn, width height, and padding variable as well as a start y and x at pposition (20,20)
-	g.bricks = []Brick{} //creates array of Brick type struct
-	brickWidth := 78
-	brickHeight := 25
-	padding := 5
-	startX := 20
-	startY := 20
+	g.bricks = []Brick{}
+
+	// Shared padding & offset
+	padding := 10
+	startX := padding
+	startY := padding * 2 // leaves some space from the top
+
+	// Setup for both modes
+	var rows, cols int
+
 	if g.mode == "campaign" {
 		layout := Levels[g.currentLevel]
-		//typical iteration logic rows, handles until final row reached
+		rows = len(layout)
+		if rows > 0 {
+			cols = len(layout[0])
+		}
+	} else if g.mode == "random" {
+		rows = rand.Intn(6) + 6  // 6–11 rows
+		cols = rand.Intn(8) + 10 // 10–17 columns
+	}
+
+	// ✅ Calculate scalable dimensions
+	totalPaddingX := (cols + 1) * padding
+	totalPaddingY := (rows + 1) * padding
+
+	brickWidth := (screenWidth - totalPaddingX) / cols
+	brickHeight := ((screenHeight / 2) - totalPaddingY) / rows // fit in top half
+
+	if g.mode == "campaign" {
+		layout := Levels[g.currentLevel]
 		for row := 0; row < len(layout); row++ {
-			//innerloop goes over columns for each row (making an inner for and a time complexity of at least O(n^2)
-			//this inner loop also initializes an initial x, y position keeping padding in mind and then pads out the bricks speerating them by 5 pixels in this case but still plenty capable to  figure it out
 			for col := 0; col < len(layout[row]); col++ {
 				health := layout[row][col]
 				x := startX + col*(brickWidth+padding)
 				y := startY + row*(brickHeight+padding)
-				//assigns varibales to brick, and Bricks inner Object sturct
+
 				brick := Brick{
 					Object: Object{
 						X: x,
@@ -285,22 +303,15 @@ func (g *Game) initBricks() {
 			}
 		}
 	} else if g.mode == "random" {
-		rows := rand.Intn(6) + 6  //5 to 11 rows
-		cols := rand.Intn(8) + 10 // 10 to 17 rows
-		//typical iteration logic rows, handles until final row reached
 		for row := 0; row < rows; row++ {
-			//innerloop goes over columns for each row (making an inner for and a time complexity of at least O(n^2)
-			//this inner loop also initializes an initial x, y position keeping padding in mind and then pads out the bricks speerating them by 5 pixels in this case but still plenty capable to  figure it out
 			for col := 0; col < cols; col++ {
-				//50% chance to place brick
 				if rand.Float64() < 0.5 {
 					continue
 				}
-
-				health := rand.Intn(4) + 1 // 1 to 4
+				health := rand.Intn(4) + 1
 				x := startX + col*(brickWidth+padding)
 				y := startY + row*(brickHeight+padding)
-				//assigns varibales to brick, and Bricks inner Object sturct
+
 				brick := Brick{
 					Object: Object{
 						X: x,
@@ -317,6 +328,7 @@ func (g *Game) initBricks() {
 		}
 	}
 }
+
 func (g *Game) CollideWithBrick() {
 	// Define ball and brick boundaries
 	ballLeft := g.ball.X
