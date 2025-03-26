@@ -57,6 +57,7 @@ type Game struct {
 	highScore    int
 	currentLevel int
 	mode         string //campaign or random
+	gameState    string //title, playing, win, game-over
 	ballLaunched bool
 }
 
@@ -84,12 +85,12 @@ func main() {
 	}
 
 	g := &Game{
-		paddle: paddle,
-		ball:   ball,
-		mode:   "random",
+		paddle:    paddle,
+		ball:      ball,
+		gameState: "title",
+		mode:      "random",
 	}
 	//INITIALIZED initBricks after you initial initBricks (iteration before full game load)
-	g.initBricks()
 	err := ebiten.RunGame(g)
 	if err != nil {
 		log.Fatal(err)
@@ -101,66 +102,91 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	vector.DrawFilledRect(screen,
-		float32(g.paddle.X), float32(g.paddle.Y),
-		float32(g.paddle.W), float32(g.paddle.H),
-		color.White, false,
-	)
-	vector.DrawFilledRect(screen,
-		float32(g.ball.X), float32(g.ball.Y),
-		float32(g.ball.W), float32(g.ball.H),
-		color.White, false,
-	)
-	for _, brick := range g.bricks {
-		if brick.Hit {
-			continue
-		}
-		brickColor := BrickColors[brick.Health]
+	switch g.gameState {
+	case "title":
+		text.Draw(screen, "BRICK BREAKER", basicfont.Face7x13, 600, 200, color.White)
+		text.Draw(screen, "Press 1 for Campaign", basicfont.Face7x13, 600, 250, color.White)
+		text.Draw(screen, "Press 2 for Random Mode", basicfont.Face7x13, 600, 270, color.White)
+	case "playing":
+		// Draw paddle, ball, bricks, score
+		// (your existing draw code here)
 		vector.DrawFilledRect(screen,
-			float32(brick.X), float32(brick.Y),
-			float32(brick.W), float32(brick.H),
-			brickColor, false,
+			float32(g.paddle.X), float32(g.paddle.Y),
+			float32(g.paddle.W), float32(g.paddle.H),
+			color.White, false,
 		)
-	}
-	scoreStr := "Score: " + fmt.Sprint(g.score)
-	text.Draw(screen, scoreStr, basicfont.Face7x13, 10, 10, color.White)
+		vector.DrawFilledRect(screen,
+			float32(g.ball.X), float32(g.ball.Y),
+			float32(g.ball.W), float32(g.ball.H),
+			color.White, false,
+		)
+		for _, brick := range g.bricks {
+			if brick.Hit {
+				continue
+			}
+			brickColor := BrickColors[brick.Health]
+			vector.DrawFilledRect(screen,
+				float32(brick.X), float32(brick.Y),
+				float32(brick.W), float32(brick.H),
+				brickColor, false,
+			)
+		}
+		scoreStr := "Score: " + fmt.Sprint(g.score)
+		text.Draw(screen, scoreStr, basicfont.Face7x13, 10, 10, color.White)
 
-	highScoreStr := "High Score: " + fmt.Sprint(g.highScore)
-	text.Draw(screen, highScoreStr, basicfont.Face7x13, 10, 30, color.White)
+		highScoreStr := "High Score: " + fmt.Sprint(g.highScore)
+		text.Draw(screen, highScoreStr, basicfont.Face7x13, 10, 30, color.White)
+	}
 }
 
 func (g *Game) Update() error {
-	//updates methods in order (so call them in the order you want them on screen)
-	g.paddle.MoveOnKeyPress()
 
-	// If ball hasn't launched, follow paddle
-	if !g.ballLaunched {
-		g.ball.X = g.paddle.X + g.paddle.W/2 - g.ball.W/2
-		g.ball.Y = g.paddle.Y - g.ball.H
-
-		// Launch on spacebar press
-		if ebiten.IsKeyPressed(ebiten.KeySpace) {
-			g.ballLaunched = true
-			g.ball.dxdt = ballSpeed
-			g.ball.dydt = -ballSpeed
+	switch g.gameState {
+	case "title":
+		if ebiten.IsKeyPressed(ebiten.Key1) {
+			g.mode = "campaign"
+			g.currentLevel = 0
+			g.initBricks()
+			g.gameState = "playing"
+		} else if ebiten.IsKeyPressed(ebiten.Key2) {
+			g.mode = "random"
+			g.currentLevel = 0
+			g.initBricks()
+			g.gameState = "playing"
 		}
-	} else {
-		// Ball moves normally
-		g.ball.Move()
-	}
 
-	g.CollideWithWall()
-	g.CollideWithPaddle()
-	g.CollideWithBrick()
+	case "playing":
+		g.paddle.MoveOnKeyPress()
 
-	//checks if all bricks allBricksCleared
-	if g.allBricksCleared() {
-		if g.mode == "campaign" {
-			g.currentLevel++
-			if g.currentLevel >= len(Levels) {
-				//end of campaign
-				g.currentLevel = 1 //for now just reset add gamestates later
+		// If ball hasn't launched, follow paddle
+		if !g.ballLaunched {
+			g.ball.X = g.paddle.X + g.paddle.W/2 - g.ball.W/2
+			g.ball.Y = g.paddle.Y - g.ball.H
 
+			// Launch on spacebar press
+			if ebiten.IsKeyPressed(ebiten.KeySpace) {
+				g.ballLaunched = true
+				g.ball.dxdt = ballSpeed
+				g.ball.dydt = -ballSpeed
+			}
+		} else {
+			// Ball moves normally
+			g.ball.Move()
+		}
+
+		g.CollideWithWall()
+		g.CollideWithPaddle()
+		g.CollideWithBrick()
+
+		//checks if all bricks allBricksCleared
+		if g.allBricksCleared() {
+			if g.mode == "campaign" {
+				g.currentLevel++
+				if g.currentLevel >= len(Levels) {
+					//end of campaign
+					g.currentLevel = 1 //for now just reset add gamestates later
+
+				}
 			}
 		}
 	}
