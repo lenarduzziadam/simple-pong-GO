@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	screenWidth  = 1550
-	screenHeight = 900
+	screenWidth  = 1500
+	screenHeight = 800
 	ballSpeed    = 5
 	paddleSpeed  = 8
 )
@@ -183,12 +183,21 @@ func (g *Game) Update() error {
 			if g.mode == "campaign" {
 				g.currentLevel++
 				if g.currentLevel >= len(Levels) {
-					//end of campaign
-					g.currentLevel = 1 //for now just reset add gamestates later
-
+					// End of campaign — reset or go to title screen
+					g.currentLevel = 0
+					g.gameState = "title"
+					g.score = 0
+					g.Reset()
+					return nil
 				}
 			}
+			// For both modes: regenerate bricks and reset ball
+			g.initBricks()
+			tempScore := g.score
+			g.Reset()
+			g.score += tempScore
 		}
+
 	}
 	return nil
 }
