@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
+	"fmt"
+	"image/color"
 	"log"
 	"math/rand"
 
-	"fmt"
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"golang.org/x/image/font/basicfont"
@@ -19,6 +22,9 @@ const (
 	ballSpeed    = 5
 	paddleSpeed  = 8
 )
+
+//go:embed music/brickBreaker2.wav
+var themeWAV []byte
 
 var BrickColors = map[int]color.RGBA{
 	4: {255, 0, 0, 255},     // Red
@@ -59,6 +65,8 @@ type Game struct {
 	mode         string //campaign or random
 	gameState    string //title, playing, win, game-over
 	ballLaunched bool
+	audioContext *audio.Context
+	themePlayer  *audio.Player
 }
 
 func main() {
@@ -84,14 +92,31 @@ func main() {
 		dydt: ballSpeed,
 	}
 
-	g := &Game{
-		paddle:    paddle,
-		ball:      ball,
-		gameState: "title",
-		mode:      "random",
+	audioContext := audio.NewContext(44100)
+
+	stream, err := wav.DecodeWithSampleRate(audioContext.SampleRate(), bytes.NewReader(themeWAV))
+	if err != nil {
+		log.Fatal(err)
 	}
-	//INITIALIZED initBricks after you initial initBricks (iteration before full game load)
-	err := ebiten.RunGame(g)
+	loop := audio.NewInfiniteLoop(stream, stream.Length())
+	player, err := audio.NewPlayer(audioContext, loop)
+	if err != nil {
+		log.Fatal(err)
+	}
+	player.SetVolume(0.6)
+	player.Play()
+	fmt.Println("🎵 Theme music started!")
+
+	g := &Game{
+		paddle:       paddle,
+		ball:         ball,
+		gameState:    "title",
+		mode:         "random",
+		audioContext: audioContext,
+		themePlayer:  player,
+	}
+
+	err = ebiten.RunGame(g)
 	if err != nil {
 		log.Fatal(err)
 	}
