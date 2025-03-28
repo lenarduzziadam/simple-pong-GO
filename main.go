@@ -121,8 +121,6 @@ func main() {
 		log.Fatal(err)
 	}
 	player.SetVolume(0.6)
-	player.Play()
-	fmt.Println("🎵 Theme music started!")
 
 	g := &Game{
 		paddle:       paddle,
@@ -186,10 +184,19 @@ func (g *Game) Update() error {
 
 	switch g.gameState {
 	case "title":
+		//rewinds playing title music
+		if g.themePlayer != nil && !g.themePlayer.IsPlaying() {
+			g.themePlayer.Rewind()
+			g.themePlayer.Play()
+		}
 		if ebiten.IsKeyPressed(ebiten.Key1) {
 			g.mode = "campaign"
 			g.currentLevel = 0
 			g.playLevelMusic(0)
+			//stops title music from playing
+			if g.themePlayer != nil && g.themePlayer.IsPlaying() {
+				g.themePlayer.Pause()
+			}
 			g.initBricks()
 			g.gameState = "playing"
 		} else if ebiten.IsKeyPressed(ebiten.Key2) {
