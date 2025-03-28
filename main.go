@@ -17,14 +17,23 @@ import (
 )
 
 const (
-	screenWidth  = 1500
-	screenHeight = 800
+	screenWidth  = 1250
+	screenHeight = 750
 	ballSpeed    = 5
 	paddleSpeed  = 8
 )
 
 //go:embed music/brickBreaker2.wav
 var themeWAV []byte
+
+//go:embed music/level1BB.wav
+var level1WAV []byte
+
+//go:embed music/level2BB.wav
+var level2WAV []byte
+
+//go:embed music/level3BB.wav
+var level3WAV []byte
 
 var BrickColors = map[int]color.RGBA{
 	4: {255, 0, 0, 255},     // Red
@@ -67,10 +76,18 @@ type Game struct {
 	ballLaunched bool
 	audioContext *audio.Context
 	themePlayer  *audio.Player
+	currentTrack *audio.Player
+	levelTracks  map[int][]byte
+}
+
+var levelTracks = map[int][]byte{
+	0: level1WAV,
+	1: level2WAV,
+	2: level3WAV,
 }
 
 func main() {
-	ebiten.SetWindowTitle("Pong in Ebitengine")
+	ebiten.SetWindowTitle("Adam's Brickbreak")
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 
 	paddle := Paddle{
@@ -114,6 +131,7 @@ func main() {
 		mode:         "random",
 		audioContext: audioContext,
 		themePlayer:  player,
+		levelTracks:  levelTracks,
 	}
 
 	err = ebiten.RunGame(g)
@@ -171,6 +189,7 @@ func (g *Game) Update() error {
 		if ebiten.IsKeyPressed(ebiten.Key1) {
 			g.mode = "campaign"
 			g.currentLevel = 0
+			g.playLevelMusic(0)
 			g.initBricks()
 			g.gameState = "playing"
 		} else if ebiten.IsKeyPressed(ebiten.Key2) {
@@ -217,6 +236,7 @@ func (g *Game) Update() error {
 				}
 			}
 			// For both modes: regenerate bricks and reset ball
+			g.playLevelMusic(g.currentLevel)
 			g.initBricks()
 			tempScore := g.score
 			g.Reset()
@@ -435,4 +455,33 @@ func (g *Game) CollideWithBrick() {
 		}
 
 	}
+}
+
+func (g *Game) playLevelMusic(level int) {
+	// Stop old track if it's playing
+	if g.currentTrack != nil && g.currentTrack.IsPlaying() {
+		g.currentTrack.Pause()
+	}
+
+	trackData, ok := g.levelTracks[level]
+	if !ok {
+		trackData = themeWAV // fallback/default
+	}
+
+	stream, err := wav.DecodeWithSampleRate(g.audioContext.SampleRate(), bytes.NewReader(trackData))
+	if err != nil {
+		log.Println("Failed to decode level music:", err)
+		return
+	}
+
+	loop := audio.NewInfiniteLoop(stream, stream.Length())
+	player, err := audio.NewPlayer(g.audioContext, loop)
+	if err != nil {
+		log.Println("Failed to create audio player:", err)
+		return
+	}
+
+	player.SetVolume(0.5)
+	player.Play()
+	g.currentTrack = player
 }
