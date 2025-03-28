@@ -76,27 +76,34 @@ type Brick struct {
 }
 
 type Game struct {
-	paddle       Paddle
-	ball         Ball
-	bricks       []Brick
-	score        int
-	highScore    int
-	currentLevel int
-	mode         string //campaign or random
-	gameState    string //title, playing, win, game-over
-	ballLaunched bool
-	audioContext *audio.Context
-	themePlayer  *audio.Player
-	currentTrack *audio.Player
-	levelTracks  map[int][]byte
-	randomTrack  []byte // or string name
-
+	paddle           Paddle
+	ball             Ball
+	bricks           []Brick
+	score            int
+	highScore        int
+	currentLevel     int
+	mode             string //campaign or random
+	gameState        string //title, playing, win, game-over
+	ballLaunched     bool
+	audioContext     *audio.Context
+	themePlayer      *audio.Player
+	currentTrack     *audio.Player
+	levelTracks      map[int][]byte
+	randomTrack      []byte            // or string name
+	randomTracks     map[string][]byte // holds "start", "mid", "final"
+	randomMusicState string            // "start", "mid", "final"
 }
 
 var levelTracks = map[int][]byte{
 	0: level1WAV,
 	1: level2WAV,
 	2: level3WAV,
+}
+
+var randomTracks = map[string][]byte{
+	"start": random1WAV,
+	"mid":   randomRunWAV,
+	"final": randomFinalWAV,
 }
 
 func main() {
@@ -136,13 +143,15 @@ func main() {
 	player.SetVolume(0.6)
 
 	g := &Game{
-		paddle:       paddle,
-		ball:         ball,
-		gameState:    "title",
-		mode:         "random",
-		audioContext: audioContext,
-		themePlayer:  player,
-		levelTracks:  levelTracks,
+		paddle:           paddle,
+		ball:             ball,
+		gameState:        "title",
+		mode:             "random",
+		audioContext:     audioContext,
+		themePlayer:      player,
+		levelTracks:      levelTracks,
+		randomTracks:     randomTracks,
+		randomMusicState: "start",
 	}
 
 	err = ebiten.RunGame(g)
@@ -214,15 +223,14 @@ func (g *Game) Update() error {
 			g.gameState = "playing"
 		} else if ebiten.IsKeyPressed(ebiten.Key2) {
 			g.mode = "random"
+			g.currentLevel = 0
 
 			if g.themePlayer != nil && g.themePlayer.IsPlaying() {
 				g.themePlayer.Pause()
 			}
 
-			randomOptions := [][]byte{random1WAV, randomRunWAV, randomFinalWAV}
-			g.randomTrack = randomOptions[rand.Intn(len(randomOptions))]
-
-			g.playRawMusic(g.randomTrack) // play the random track
+			g.randomMusicState = "start"
+			g.playRawMusic(g.randomTracks["start"]) // play the random track
 
 			g.initBricks()
 			g.gameState = "playing"
@@ -252,6 +260,36 @@ func (g *Game) Update() error {
 		g.CollideWithPaddle()
 		g.CollideWithBrick()
 
+		//random music switch logic
+		if g.mode == "random" {
+			total := 0
+			remaining := 0
+			for _, b := range g.bricks {
+				if b.MaxHealth > 0 {
+					total++
+					if b.Health > 0 {
+						remaining++
+					}
+				}
+			}
+
+			if total > 0 {
+				percentRemaining := float64(remaining) / float64(total)
+
+				// Switch to mid track at ≤50%
+				if percentRemaining <= 0.5 && g.randomMusicState == "start" {
+					g.playRawMusic(g.randomTracks["mid"])
+					g.randomMusicState = "mid"
+				}
+
+				// Switch to final track at ≤20%
+				if percentRemaining <= 0.2 && g.randomMusicState != "final" {
+					g.playRawMusic(g.randomTracks["final"])
+					g.randomMusicState = "final"
+				}
+			}
+		}
+
 		//checks if all bricks allBricksCleared
 		if g.allBricksCleared() {
 			if g.mode == "campaign" {
@@ -264,9 +302,13 @@ func (g *Game) Update() error {
 					g.Reset()
 					return nil
 				}
+				g.playLevelMusic(g.currentLevel)
+			}
+			if g.mode == "random" {
+				g.randomMusicState = "start"
+				g.playRawMusic(g.randomTracks["start"])
 			}
 			// For both modes: regenerate bricks and reset ball
-			g.playLevelMusic(g.currentLevel)
 			g.initBricks()
 			tempScore := g.score
 			g.Reset()
