@@ -219,7 +219,9 @@ func (g *Game) Update() error {
 				g.themePlayer.Pause()
 			}
 
-			g.randomTrack = randomRunWAV
+			randomOptions := [][]byte{random1WAV, randomRunWAV, randomFinalWAV}
+			g.randomTrack = randomOptions[rand.Intn(len(randomOptions))]
+
 			g.playRawMusic(g.randomTrack) // play the random track
 
 			g.initBricks()
