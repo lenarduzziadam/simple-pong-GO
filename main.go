@@ -35,6 +35,17 @@ var level2WAV []byte
 //go:embed music/level3BB.wav
 var level3WAV []byte
 
+//go:embed music/random/random1BB.wav
+var random1WAV []byte
+
+// Optional extras:
+//
+//go:embed music/random/random1run.wav
+var randomRunWAV []byte
+
+//go:embed music/random/random1final.wav
+var randomFinalWAV []byte
+
 var BrickColors = map[int]color.RGBA{
 	4: {255, 0, 0, 255},     // Red
 	3: {0, 0, 255, 255},     // Blue
@@ -78,6 +89,8 @@ type Game struct {
 	themePlayer  *audio.Player
 	currentTrack *audio.Player
 	levelTracks  map[int][]byte
+	randomTrack  []byte // or string name
+
 }
 
 var levelTracks = map[int][]byte{
@@ -201,9 +214,17 @@ func (g *Game) Update() error {
 			g.gameState = "playing"
 		} else if ebiten.IsKeyPressed(ebiten.Key2) {
 			g.mode = "random"
-			g.currentLevel = 0
+
+			if g.themePlayer != nil && g.themePlayer.IsPlaying() {
+				g.themePlayer.Pause()
+			}
+
+			g.randomTrack = randomRunWAV
+			g.playRawMusic(g.randomTrack) // play the random track
+
 			g.initBricks()
 			g.gameState = "playing"
+
 		}
 
 	case "playing":
@@ -485,6 +506,29 @@ func (g *Game) playLevelMusic(level int) {
 	player, err := audio.NewPlayer(g.audioContext, loop)
 	if err != nil {
 		log.Println("Failed to create audio player:", err)
+		return
+	}
+
+	player.SetVolume(0.5)
+	player.Play()
+	g.currentTrack = player
+}
+
+func (g *Game) playRawMusic(track []byte) {
+	if g.currentTrack != nil && g.currentTrack.IsPlaying() {
+		g.currentTrack.Pause()
+	}
+
+	stream, err := wav.DecodeWithSampleRate(g.audioContext.SampleRate(), bytes.NewReader(track))
+	if err != nil {
+		log.Println("failed to decode music:", err)
+		return
+	}
+
+	loop := audio.NewInfiniteLoop(stream, stream.Length())
+	player, err := audio.NewPlayer(g.audioContext, loop)
+	if err != nil {
+		log.Println("failed to create player:", err)
 		return
 	}
 
